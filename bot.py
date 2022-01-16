@@ -1,5 +1,3 @@
-from posixpath import split
-from tkinter import font
 from misskey import Misskey
 import websockets
 import asyncio, aiohttp
