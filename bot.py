@@ -1,4 +1,4 @@
-from ast import Import
+import logging
 from misskey import Misskey
 import websockets
 import asyncio, aiohttp
@@ -16,6 +16,7 @@ except ImportError:
     import config
 
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+from pilmoji import Pilmoji
 from io import BytesIO
 
 WS_URL = f'wss://{config.MISSKEY_INSTANCE}/streaming?i={config.MISSKEY_TOKEN}'
@@ -36,6 +37,8 @@ MPLUS_FONT_16 = ImageFont.truetype('MPLUSRounded1c-Regular.ttf', size=16)
 
 session = aiohttp.ClientSession()
 
+# logging.basicConfig(level=logging.DEBUG)
+
 def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color=(0,0,0,255), split_len=None, padding=4):
     
     draw = ImageDraw.Draw(im)
@@ -44,7 +47,7 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
     lines = string.split('\n')
 
     # string = string.replace('\n', ' ')
-    string = re.sub(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', string)
+    # string = re.sub(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', string)
 
     dy = 0
 
@@ -68,7 +71,7 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
 
             for t in l:
                 sz = fontObj.getsize(t)
-                x = ofs[0] - (sz[0]/2)
+                x = int(ofs[0] - (sz[0]/2))
                 #draw.text((x, ofs_y), t, font=fontObj, fill=color)
                 draw_lines.append((x, ofs_y, t))
                 ofs_y += t_height + padding
@@ -76,7 +79,7 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
 
         else:
             tsize_t = fontObj.getsize(line)
-            text_x = ofs[0] - (tsize_t[0]/2)
+            text_x = int(ofs[0] - (tsize_t[0]/2))
             text_y = ofs[1] + dy
             #draw.text((text_x, text_y), line, font=fontObj, fill=color)
             draw_lines.append((text_x, text_y, line))
@@ -85,7 +88,8 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
     # 描画
     adj_y = -30 * (len(draw_lines)-1)
     for dl in draw_lines:
-        draw.text((dl[0], (adj_y + dl[1])), dl[2], font=fontObj, fill=color)
+        with Pilmoji(im) as p:
+            p.text((dl[0], (adj_y + dl[1])), dl[2], font=fontObj, fill=color, emoji_position_offset=(-8, 4))
 
     real_y = ofs[1] + adj_y + dy
 
