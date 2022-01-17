@@ -1,3 +1,4 @@
+from ast import Import
 from misskey import Misskey
 import websockets
 import asyncio, aiohttp
@@ -9,7 +10,10 @@ import re
 import math
 import time
 
-import config_my as config
+try:
+    import config_my as config
+except ImportError:
+    import config
 
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from io import BytesIO
