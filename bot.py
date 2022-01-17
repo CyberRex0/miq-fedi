@@ -48,26 +48,29 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
 
     dy = 0
 
-    adj_y = -40 * (len(lines)-1)
+    draw_lines = []
 
+
+    # 計算
     for line in lines:
 
         if split_len and len(line) > split_len:
 
-            draw_lines = []
+            l = []
 
             for i in range(0, len(line), split_len):
-                draw_lines.append(line[i:i+split_len])
+                l.append(line[i:i+split_len])
 
-            tsize = fontObj.getsize(draw_lines[0])
+            tsize = fontObj.getsize(l[0])
 
-            ofs_y = adj_y + ofs[1] + dy
+            ofs_y = ofs[1] + dy
             t_height = tsize[1]
 
-            for t in draw_lines:
+            for t in l:
                 sz = fontObj.getsize(t)
                 x = ofs[0] - (sz[0]/2)
-                draw.text((x, ofs_y), t, font=fontObj, fill=color)
+                #draw.text((x, ofs_y), t, font=fontObj, fill=color)
+                draw_lines.append((x, ofs_y, t))
                 ofs_y += t_height + padding
                 dy += t_height + padding
 
@@ -75,9 +78,15 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
             tsize_t = fontObj.getsize(line)
             text_x = ofs[0] - (tsize_t[0]/2)
             text_y = ofs[1] + dy
-            draw.text((text_x, text_y), line, font=fontObj, fill=color)
+            #draw.text((text_x, text_y), line, font=fontObj, fill=color)
+            draw_lines.append((text_x, text_y, line))
             dy += tsize_t[1] + padding
     
+    # 描画
+    adj_y = -30 * (len(draw_lines)-1)
+    for dl in draw_lines:
+        draw.text((dl[0], (adj_y + dl[1])), dl[2], font=fontObj, fill=color)
+
     real_y = ofs[1] + adj_y + dy
 
     return (0, dy, real_y)
