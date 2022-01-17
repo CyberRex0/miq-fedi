@@ -131,7 +131,7 @@ async def on_post_note(note):
                 icon = icon.convert('L') # グレースケール変換
                 icon_filtered = ImageEnhance.Brightness(icon)
 
-                img.paste(icon_filtered.enhance(0.3), (0,0))
+                img.paste(icon_filtered.enhance(0.7), (0,0))
 
                 # 黒グラデ合成
                 img.paste(BASE_GRADATION_IMAGE, (0,0), BASE_GRADATION_IMAGE)
