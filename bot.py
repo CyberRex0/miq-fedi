@@ -11,7 +11,7 @@ import time
 
 import config_my as config
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from io import BytesIO
 
 WS_URL = f'wss://{config.MISSKEY_INSTANCE}/streaming?i={config.MISSKEY_TOKEN}'
@@ -21,7 +21,7 @@ i = msk.i()
 MY_ID = i['id']
 print('Bot user id: ' + MY_ID)
 
-BASE_GRADATION_IMAGE = Image.open('base-gd-2.png')
+BASE_GRADATION_IMAGE = Image.open('base-gd-3.png')
 BASE_WHITE_IMAGE = Image.open('base-w.png')
 
 FONT_FILE = 'MPLUSRounded1c-Regular.ttf'
@@ -44,7 +44,7 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
 
     dy = 0
 
-    adj_y = -40 * len(lines)
+    adj_y = -40 * (len(lines)-1)
 
     for line in lines:
 
@@ -128,8 +128,10 @@ async def on_post_note(note):
                     print('Quote: 描画中')
                 icon = Image.open(BytesIO(avatar))
                 icon = icon.resize((720, 720), Image.ANTIALIAS)
-                icon = icon.convert('RGBA')
-                img.paste(icon, (0,0))
+                icon = icon.convert('L') # グレースケール変換
+                icon_filtered = ImageEnhance.Brightness(icon)
+
+                img.paste(icon_filtered.enhance(0.3), (0,0))
 
                 # 黒グラデ合成
                 img.paste(BASE_GRADATION_IMAGE, (0,0), BASE_GRADATION_IMAGE)
