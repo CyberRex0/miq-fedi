@@ -96,129 +96,130 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
 receivedNotes = set()
 
 async def on_post_note(note):
+    pass
 
+async def on_mention(note):
     # HTLとGTLを監視している都合上重複する恐れがあるため
     if note['id'] in receivedNotes:
         return
 
     receivedNotes.add(note['id'])
 
-    if note.get('mentions'):
-        print(note['mentions'])
-        if MY_ID in note['mentions']:
-            command = False
+    command = False
 
-            # 他のメンション取り除く
-            split_text = note['text'].split(' ')
-            new_st = []
+    # 他のメンション取り除く
+    split_text = note['text'].split(' ')
+    new_st = []
 
-            for t in split_text:
-                if t.startswith('@'):
-                    if (not t==f'@{i["username"]}') and (not t==f'@{i["username"]}@{config.MISSKEY_INSTANCE}'):
-                        pass
-                    else:
-                        new_st.append(t)
-                else:
-                    new_st.append(t)
-
-            note['text'] = ' '.join(new_st)
-
-            try:
-                content = note['text'].strip().split(' ', 1)[1].strip()
-                command = True
-            except IndexError:
+    for t in split_text:
+        if t.startswith('@'):
+            if (not t==f'@{i["username"]}') and (not t==f'@{i["username"]}@{config.MISSKEY_INSTANCE}'):
                 pass
-            
-            # メンションだけされた？
-            if note.get('reply'):
+            else:
+                new_st.append(t)
+        else:
+            new_st.append(t)
 
-                if config.DEBUG:
-                    print(f'Quote: {note["user"]["name"] or note["user"]["username"]} からの実行依頼を受信')
+    note['text'] = ' '.join(new_st)
 
-                # 引用する
-                img = BASE_WHITE_IMAGE.copy()
-                # アイコン画像ダウンロード
-                if not note['user'].get('avatarUrl'):
-                    msk.notes_create(text='アイコン画像がないので作れません', reply_id=note['id'])
-                    return
-                
-                if config.DEBUG:
-                    print('Quote: アイコンダウンロード')
+    try:
+        content = note['text'].strip().split(' ', 1)[1].strip()
+        command = True
+    except IndexError:
+        pass
+    
+    # メンションだけされた？
+    if note.get('reply'):
 
-                async with session.get(note['user']['avatarUrl']) as resp:
-                    if resp.status != 200:
-                        msk.notes_create(text='アイコン画像ダウンロードに失敗しました', reply_id=note['id'])
-                        return
-                    avatar = await resp.read()
-                
-                if config.DEBUG:
-                    print('Quote: 描画中')
-                icon = Image.open(BytesIO(avatar))
-                icon = icon.resize((720, 720), Image.ANTIALIAS)
-                icon = icon.convert('L') # グレースケール変換
-                icon_filtered = ImageEnhance.Brightness(icon)
+        reply_note = note['reply']
 
-                img.paste(icon_filtered.enhance(0.7), (0,0))
+        if config.DEBUG:
+            print(f'Quote: {note["user"]["name"] or note["user"]["username"]} からの実行依頼を受信')
 
-                # 黒グラデ合成
-                img.paste(BASE_GRADATION_IMAGE, (0,0), BASE_GRADATION_IMAGE)
+        # 引用する
+        img = BASE_WHITE_IMAGE.copy()
+        # アイコン画像ダウンロード
+        if not reply_note['user'].get('avatarUrl'):
+            msk.notes_create(text='アイコン画像がないので作れません', reply_id=note['id'])
+            return
+        
+        if config.DEBUG:
+            print('Quote: アイコンダウンロード')
 
-                # テキスト合成
-                tx = ImageDraw.Draw(img)
-
-                base_x = 960
-
-                # 文章描画
-                tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=FONT_FILE, size=45, color=(255,255,255,255), split_len=14)
-
-                # 名前描画
-                uname = note['user']['name'] or note['user']['username']
-                name_y = tsize_t[2] + 90
-                tsize_name = draw_text(img, (base_x, name_y), uname, font=FONT_FILE, size=25, color=(255,255,255,255), split_len=25)
-                
-                # ID描画
-                id = note['user']['username']
-                id_y = name_y + tsize_name[1] + 4
-                tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{note["user"]["host"] or config.MISSKEY_INSTANCE})', font=FONT_FILE, size=22, color=(180,180,180,255), split_len=35)
-
-                # クレジット
-                tx.text((980, 694), '<Make it a quote for Fedi> by CyberRex', font=MPLUS_FONT_16, fill=(120,120,120,255))
-
-                # print(f'{tsize_t=}')
-                # print(f'{tsize_name=}')
-
-
-                # ドライブにアップロード
-                if config.DEBUG:
-                    print('Quote: アップロード準備中')
-                try:
-                    data = BytesIO()
-                    img.save(data, format='JPEG')
-                    data.seek(0)
-                    if config.DEBUG:
-                        print('Quote: アップロード中')
-                    f = msk.drive_files_create(file=data, name=f'{datetime.datetime.utcnow().timestamp()}.jpg')
-                except Exception as e:
-                    msk.notes_create('ドライブにアップロードに失敗しました\n' + traceback.format_exc(), reply_id=note['id'])
-                    return
-                if config.DEBUG:
-                    print('Quote: ノート送信中')
-                msk.notes_create(text='.', file_ids=[f['id']], reply_id=note['id'])
-                if config.DEBUG:
-                    print('Quote: 完了')
-
+        async with session.get(reply_note['user']['avatarUrl']) as resp:
+            if resp.status != 200:
+                msk.notes_create(text='アイコン画像ダウンロードに失敗しました', reply_id=note['id'])
                 return
+            avatar = await resp.read()
+        
+        if config.DEBUG:
+            print('Quote: 描画中')
+        icon = Image.open(BytesIO(avatar))
+        icon = icon.resize((720, 720), Image.ANTIALIAS)
+        icon = icon.convert('L') # グレースケール変換
+        icon_filtered = ImageEnhance.Brightness(icon)
+
+        img.paste(icon_filtered.enhance(0.7), (0,0))
+
+        # 黒グラデ合成
+        img.paste(BASE_GRADATION_IMAGE, (0,0), BASE_GRADATION_IMAGE)
+
+        # テキスト合成
+        tx = ImageDraw.Draw(img)
+
+        base_x = 960
+
+        # 文章描画
+        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=FONT_FILE, size=45, color=(255,255,255,255), split_len=14)
+
+        # 名前描画
+        uname = reply_note['user']['name'] or reply_note['user']['username']
+        name_y = tsize_t[2] + 90
+        tsize_name = draw_text(img, (base_x, name_y), uname, font=FONT_FILE, size=25, color=(255,255,255,255), split_len=25)
+        
+        # ID描画
+        id = reply_note['user']['username']
+        id_y = name_y + tsize_name[1] + 4
+        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=FONT_FILE, size=22, color=(180,180,180,255), split_len=35)
+
+        # クレジット
+        tx.text((980, 694), '<Make it a quote for Fedi> by CyberRex', font=MPLUS_FONT_16, fill=(120,120,120,255))
+
+        # print(f'{tsize_t=}')
+        # print(f'{tsize_name=}')
 
 
-            if command:
+        # ドライブにアップロード
+        if config.DEBUG:
+            print('Quote: アップロード準備中')
+        try:
+            data = BytesIO()
+            img.save(data, format='JPEG')
+            data.seek(0)
+            if config.DEBUG:
+                print('Quote: アップロード中')
+            f = msk.drive_files_create(file=data, name=f'{datetime.datetime.utcnow().timestamp()}.jpg')
+        except Exception as e:
+            msk.notes_create('ドライブにアップロードに失敗しました\n' + traceback.format_exc(), reply_id=note['id'])
+            return
+        if config.DEBUG:
+            print('Quote: ノート送信中')
+        msk.notes_create(text='.', file_ids=[f['id']], reply_id=note['id'])
+        if config.DEBUG:
+            print('Quote: 完了')
 
-                if content == 'ping':
+        return
 
-                    postdate = datetime.datetime.fromisoformat(note['createdAt'][:-1]).timestamp()
-                    nowdate = datetime.datetime.utcnow().timestamp()
-                    sa = nowdate - postdate
-                    text = f'{sa*1000:.2f}ms'
-                    msk.notes_create(text=text, reply_id=note['id'])
+
+    if command:
+
+        if content == 'ping':
+
+            postdate = datetime.datetime.fromisoformat(note['createdAt'][:-1]).timestamp()
+            nowdate = datetime.datetime.utcnow().timestamp()
+            sa = nowdate - postdate
+            text = f'{sa*1000:.2f}ms'
+            msk.notes_create(text=text, reply_id=note['id'])
 
             
 
@@ -266,6 +267,7 @@ async def main():
             # print(j)
 
             if j['type'] == 'channel':
+
                 if j['body']['type'] == 'note':
                     note = j['body']['body']
                     try:
@@ -273,6 +275,15 @@ async def main():
                     except Exception as e:
                         print(traceback.format_exc())
                         continue
+
+                if j['body']['type'] == 'mention':
+                    note = j['body']['body']
+                    try:
+                        await on_mention(note)
+                    except Exception as e:
+                        print(traceback.format_exc())
+                        continue
+
                 if j['body']['type'] == 'followed':
                     try:
                         await on_followed(j['body']['body'])
