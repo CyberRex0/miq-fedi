@@ -1,4 +1,5 @@
 import logging
+from cv2 import split
 from misskey import Misskey
 import websockets
 import asyncio, aiohttp
@@ -26,7 +27,7 @@ i = msk.i()
 MY_ID = i['id']
 print('Bot user id: ' + MY_ID)
 
-BASE_GRADATION_IMAGE = Image.open('base-gd-3.png')
+BASE_GRADATION_IMAGE = Image.open('base-gd-4.png')
 BASE_WHITE_IMAGE = Image.open('base-w.png')
 
 FONT_FILE = 'MPLUSRounded1c-Regular.ttf'
@@ -45,10 +46,6 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
     fontObj = ImageFont.truetype(font, size=size)
 
     lines = string.split('\n')
-
-    # string = string.replace('\n', ' ')
-    # string = re.sub(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', string)
-
     dy = 0
 
     draw_lines = []
@@ -100,6 +97,7 @@ receivedNotes = set()
 
 async def on_post_note(note):
 
+    # HTLとGTLを監視している都合上重複する恐れがあるため
     if note['id'] in receivedNotes:
         return
 
@@ -108,12 +106,24 @@ async def on_post_note(note):
     if note.get('mentions'):
         print(note['mentions'])
         if MY_ID in note['mentions']:
-            # print(note)
-
             command = False
 
+            # 他のメンション取り除く
+            split_text = note['text'].split(' ')
+            new_st = []
+
+            for t in split_text:
+                if t.startswith('@'):
+                    if (not t==f'@{i["username"]}') and (not t==f'@{i["username"]}@{config.MISSKEY_INSTANCE}'):
+                        pass
+                    else:
+                        new_st.append(t)
+                else:
+                    new_st.append(t)
+
+            note['text'] = ' '.join(new_st)
+
             try:
-                note['text'] = re.sub(r'@(?=\w+)(?!' + i['username'] + r')', '', note['text'])
                 content = note['text'].strip().split(' ', 1)[1].strip()
                 command = True
             except IndexError:
