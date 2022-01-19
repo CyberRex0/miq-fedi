@@ -31,17 +31,19 @@ BASE_GRADATION_IMAGE = Image.open('base-gd-4.png')
 BASE_WHITE_IMAGE = Image.open('base-w.png')
 
 FONT_FILE = 'fonts/MPLUSRounded1c-Regular.ttf'
-FONT_FILE_SERIF = 'fonts/NotoSerifJP-Regular.ttf'
+FONT_FILE_SERIF = 'fonts/NotoSerifJP-Regular.otf'
+FONT_FILE_OLD_JAPANESE = 'fonts/YujiSyuku-Regular.ttf'
+FONT_FILE_POP = 'fonts/MochiyPopPOne-Regular.ttf'
 
 #MPLUS_FONT_TEXT = ImageFont.truetype(FONT_FILE, size=45)
 #MPLUS_FONT_NAME = ImageFont.truetype(FONT_FILE, size=30)
-MPLUS_FONT_16 = ImageFont.truetype('MPLUSRounded1c-Regular.ttf', size=16)
+MPLUS_FONT_16 = ImageFont.truetype('fonts/MPLUSRounded1c-Regular.ttf', size=16)
 
 session = aiohttp.ClientSession()
 
 # logging.basicConfig(level=logging.DEBUG)
 
-def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color=(0,0,0,255), split_len=None, padding=4, auto_expand=False):
+def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16, color=(0,0,0,255), split_len=None, padding=4, auto_expand=False):
     
     draw = ImageDraw.Draw(im)
     fontObj = ImageFont.truetype(font, size=size)
@@ -178,18 +180,27 @@ async def on_mention(note):
 
         base_x = 960
 
+        font_path = FONT_FILE
+
+        if '%serif' in note['text']:
+            font_path = FONT_FILE_SERIF
+        elif '%pop' in note['text']:
+            font_path = FONT_FILE_POP
+        elif '%oldjp' in note['text']:
+            font_path = FONT_FILE_OLD_JAPANESE
+
         # 文章描画
-        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=FONT_FILE, size=45, color=(255,255,255,255), split_len=14, auto_expand=True)
+        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=font_path, size=45, color=(255,255,255,255), split_len=14, auto_expand=True)
 
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
         name_y = tsize_t[2] + 90
-        tsize_name = draw_text(img, (base_x, name_y), uname, font=FONT_FILE, size=25, color=(255,255,255,255), split_len=25)
+        tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25)
         
         # ID描画
         id = reply_note['user']['username']
         id_y = name_y + tsize_name[1] + 4
-        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=FONT_FILE, size=22, color=(180,180,180,255), split_len=35)
+        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=font_path, size=22, color=(180,180,180,255), split_len=35)
 
         # クレジット
         tx.text((980, 694), '<Make it a quote for Fedi> by CyberRex', font=MPLUS_FONT_16, fill=(120,120,120,255))
