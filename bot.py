@@ -30,17 +30,18 @@ print('Bot user id: ' + MY_ID)
 BASE_GRADATION_IMAGE = Image.open('base-gd-4.png')
 BASE_WHITE_IMAGE = Image.open('base-w.png')
 
-FONT_FILE = 'MPLUSRounded1c-Regular.ttf'
+FONT_FILE = 'fonts/MPLUSRounded1c-Regular.ttf'
+FONT_FILE_SERIF = 'fonts/NotoSerifJP-Regular.ttf'
 
-MPLUS_FONT_TEXT = ImageFont.truetype(FONT_FILE, size=45)
-MPLUS_FONT_NAME = ImageFont.truetype(FONT_FILE, size=30)
+#MPLUS_FONT_TEXT = ImageFont.truetype(FONT_FILE, size=45)
+#MPLUS_FONT_NAME = ImageFont.truetype(FONT_FILE, size=30)
 MPLUS_FONT_16 = ImageFont.truetype('MPLUSRounded1c-Regular.ttf', size=16)
 
 session = aiohttp.ClientSession()
 
 # logging.basicConfig(level=logging.DEBUG)
 
-def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color=(0,0,0,255), split_len=None, padding=4):
+def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color=(0,0,0,255), split_len=None, padding=4, auto_expand=False):
     
     draw = ImageDraw.Draw(im)
     fontObj = ImageFont.truetype(font, size=size)
@@ -54,12 +55,20 @@ def draw_text(im, ofs, string, font='MPLUSRounded1c-Regular.ttf', size=16, color
     # 計算
     for line in lines:
 
-        if split_len and len(line) > split_len:
+        spl_len = split_len
+
+        if auto_expand and split_len:
+
+            # 英数字のみの行の場合、表示する行拡張
+            if re.search(r'^[0-9a-zA-Z!"#\$%&\'\(\)@<>\?\\\[\]\^\-=~|`{}\+\*_]+$', line):
+                spl_len += 4
+
+        if spl_len and len(line) > spl_len:
 
             l = []
 
-            for i in range(0, len(line), split_len):
-                l.append(line[i:i+split_len])
+            for i in range(0, len(line), spl_len):
+                l.append(line[i:i+spl_len])
 
             tsize = fontObj.getsize(l[0])
 
@@ -170,7 +179,7 @@ async def on_mention(note):
         base_x = 960
 
         # 文章描画
-        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=FONT_FILE, size=45, color=(255,255,255,255), split_len=14)
+        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=FONT_FILE, size=45, color=(255,255,255,255), split_len=14, auto_expand=True)
 
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
