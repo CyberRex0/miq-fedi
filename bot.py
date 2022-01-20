@@ -152,6 +152,9 @@ async def on_mention(note):
 
         reply_note = note['reply']
 
+        if reply_note['cw']:
+            reply_note['text'] = reply_note['cw'] + '\n' + reply_note['text']
+
         if config.DEBUG:
             print(f'Quote: {note["user"]["name"] or note["user"]["username"]} からの実行依頼を受信')
 
