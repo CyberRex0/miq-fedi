@@ -152,6 +152,10 @@ async def on_mention(note):
 
         reply_note = note['reply']
 
+        # ボットの投稿へのメンションの場合は応答しない
+        if reply_note['user']['id'] == MY_ID:
+            return
+
         if reply_note['cw']:
             reply_note['text'] = reply_note['cw'] + '\n' + reply_note['text']
 
