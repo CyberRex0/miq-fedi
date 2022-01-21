@@ -62,7 +62,7 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
         if auto_expand and split_len:
 
             # 英数字のみの行の場合、表示する行拡張
-            if re.search(r'^[0-9a-zA-Z!"#\$%&\'\(\)@<>\?\\\[\]\^\-=~|`{}\+\*_:,\. ]+$', line):
+            if re.search(r'^[0-9a-zA-Z!"#\$%&\'\(\)@<>\?\\\[\]\^\-=~|`{}\+\*_:,\. /]+$', line):
                 spl_len += 4
         
         # 絵文字変換をする可能性がある場合、絵文字を検出して自動で行当たりの文字数制限を緩和する
@@ -231,11 +231,20 @@ async def on_mention(note):
                 print('Quote: アップロード中')
             f = msk.drive_files_create(file=data, name=f'{datetime.datetime.utcnow().timestamp()}.jpg')
         except Exception as e:
-            msk.notes_create('ドライブにアップロードに失敗しました\n' + traceback.format_exc(), reply_id=note['id'])
+            if 'INTERNAL_ERROR' in str(e):
+                msk.notes_create('Internal Error occured in Misskey!', reply_id=note['id'])
+                return
+            if 'RATE_LIMIT_EXCEEDED' in str(e):
+                msk.notes_create('利用殺到による一時的なAPI制限が発生しました。しばらく時間を置いてから再度お試しください。\nA temporary API restriction has occurred due to overwhelming usage. Please wait for a while and try again.', reply_id=note['id'])
+                return
+            msk.notes_create('画像アップロードに失敗しました\n```plaintext\n' + traceback.format_exc() + '\n```', reply_id=note['id'])
             return
+        
         if config.DEBUG:
             print('Quote: ノート送信中')
+        
         msk.notes_create(text='.', file_ids=[f['id']], reply_id=note['id'])
+
         if config.DEBUG:
             print('Quote: 完了')
 
