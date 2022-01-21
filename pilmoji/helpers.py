@@ -73,14 +73,12 @@ def _parse_line(line: str, /, emojis: list = []) -> List[Node]:
     nodes = []
 
     for i, chunk in enumerate(EMOJI_REGEX.split(line)):
-        print(i, chunk)
         if not chunk:
             continue
 
         if not i % 2:
             nodes.append(Node(NodeType.text, chunk))
             continue
-        print(chunk)
         # fedi emojiであるかどうかチェックする
         if chunk.startswith(':') and chunk.endswith(':'):
             emoji_name = chunk.replace(':', '')
