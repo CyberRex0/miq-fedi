@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from optparse import Option
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 from typing import Dict, Optional, SupportsInt, TYPE_CHECKING, Tuple, Type, TypeVar, Union
 
 from .helpers import NodeType, getsize, to_nodes
@@ -325,14 +325,19 @@ class Pilmoji:
                     self.draw.text((x, y), content, *args, **kwargs)
                     x += width
                     continue
+                
+                try:
+                    with Image.open(stream).convert('RGBA') as asset:
+                        width = int(emoji_scale_factor * font.size)
+                        size = width, math.ceil(asset.height / asset.width * width)
+                        asset = asset.resize(size, Image.ANTIALIAS)
 
-                with Image.open(stream).convert('RGBA') as asset:
-                    width = int(emoji_scale_factor * font.size)
-                    size = width, math.ceil(asset.height / asset.width * width)
-                    asset = asset.resize(size, Image.ANTIALIAS)
-
-                    ox, oy = emoji_position_offset
-                    self.image.paste(asset, (x + ox, y + oy), asset)
+                        ox, oy = emoji_position_offset
+                        self.image.paste(asset, (x + ox, y + oy), asset)
+                except UnidentifiedImageError:
+                    self.draw.text((x, y), content, *args, **kwargs)
+                    x += width
+                    continue
 
                 x += width
             y += spacing + font.size
