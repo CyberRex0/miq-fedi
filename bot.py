@@ -1,5 +1,4 @@
 import logging
-from cv2 import split
 from misskey import Misskey
 import websockets
 import asyncio, aiohttp
@@ -10,6 +9,7 @@ import traceback
 import re
 import math
 import time
+import textwrap
 
 try:
     import config_my as config
@@ -48,7 +48,7 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
     draw = ImageDraw.Draw(im)
     fontObj = ImageFont.truetype(font, size=size)
 
-    lines = string.split('\n')
+    lines = textwrap.wrap(string, width=split_len)
     dy = 0
 
     draw_lines = []
@@ -56,50 +56,16 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
 
     # 計算
     for line in lines:
+        tsize = fontObj.getsize(line)
 
-        spl_len = split_len
+        ofs_y = ofs[1] + dy
+        t_height = tsize[1]
 
-        if auto_expand and split_len:
-
-            # 英数字のみの行の場合、表示する行拡張
-            if re.search(r'^[0-9a-zA-Z!"#\$%&\'\(\)@<>\?\\\[\]\^\-=~|`{}\+\*_:,\. /]+$', line):
-                spl_len += 6
-        
-        # 絵文字変換をする可能性がある場合、絵文字を検出して自動で行当たりの文字数制限を緩和する
-        if emojis:
-            regex_emojis = re.findall(r':[a-zA-Z0-9_]+:', line)
-            if regex_emojis:
-                for e in regex_emojis:
-                    spl_len += len(e)
-
-
-        if spl_len and len(line) > spl_len:
-
-            l = []
-
-            for i in range(0, len(line), spl_len):
-                l.append(line[i:i+spl_len])
-
-            tsize = fontObj.getsize(l[0])
-
-            ofs_y = ofs[1] + dy
-            t_height = tsize[1]
-
-            for t in l:
-                sz = fontObj.getsize(t)
-                x = int(ofs[0] - (sz[0]/2))
-                #draw.text((x, ofs_y), t, font=fontObj, fill=color)
-                draw_lines.append((x, ofs_y, t))
-                ofs_y += t_height + padding
-                dy += t_height + padding
-
-        else:
-            tsize_t = fontObj.getsize(line)
-            text_x = int(ofs[0] - (tsize_t[0]/2))
-            text_y = ofs[1] + dy
-            #draw.text((text_x, text_y), line, font=fontObj, fill=color)
-            draw_lines.append((text_x, text_y, line))
-            dy += tsize_t[1] + padding
+        x = int(ofs[0] - (tsize[0]/2))
+        #draw.text((x, ofs_y), t, font=fontObj, fill=color)
+        draw_lines.append((x, ofs_y, line))
+        ofs_y += t_height + padding
+        dy += t_height + padding
     
     # 描画
     adj_y = -30 * (len(draw_lines)-1)
@@ -209,7 +175,7 @@ async def on_mention(note):
 
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
-        name_y = tsize_t[2] + 90
+        name_y = tsize_t[2] + 40
         tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25, emojis=reply_note['user']['emojis'])
         
         # ID描画
