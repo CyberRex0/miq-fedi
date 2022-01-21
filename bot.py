@@ -63,7 +63,7 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
 
             # 英数字のみの行の場合、表示する行拡張
             if re.search(r'^[0-9a-zA-Z!"#\$%&\'\(\)@<>\?\\\[\]\^\-=~|`{}\+\*_:,\. /]+$', line):
-                spl_len += 4
+                spl_len += 6
         
         # 絵文字変換をする可能性がある場合、絵文字を検出して自動で行当たりの文字数制限を緩和する
         if emojis:
