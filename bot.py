@@ -71,7 +71,7 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
     adj_y = -30 * (len(draw_lines)-1)
     for dl in draw_lines:
         with Pilmoji(im) as p:
-            p.text((dl[0], (adj_y + dl[1])), dl[2], font=fontObj, fill=color, emojis=emojis, emoji_position_offset=(-8, 4))
+            p.text((dl[0], (adj_y + dl[1])), dl[2], font=fontObj, fill=color, emojis=emojis, emoji_position_offset=(-4, 4))
 
     real_y = ofs[1] + adj_y + dy
 
