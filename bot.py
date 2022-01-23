@@ -200,6 +200,7 @@ async def on_mention(note):
             if config.DEBUG:
                 print('Quote: アップロード中')
             f = msk.drive_files_create(file=data, name=f'{datetime.datetime.utcnow().timestamp()}.jpg')
+            msk.drive_files_update(file_id=f['id'], comment=f'"{reply_note["text"]}" —{reply_note["user"]["name"]}')
         except Exception as e:
             if 'INTERNAL_ERROR' in str(e):
                 msk.notes_create('Internal Error occured in Misskey!', reply_id=note['id'])
