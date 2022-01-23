@@ -27,7 +27,7 @@ i = msk.i()
 MY_ID = i['id']
 print('Bot user id: ' + MY_ID)
 
-BASE_GRADATION_IMAGE = Image.open('base-gd-4.png')
+BASE_GRADATION_IMAGE = Image.open('base-gd-5.png')
 BASE_WHITE_IMAGE = Image.open('base-w.png')
 
 FONT_FILE = 'fonts/MPLUSRounded1c-Regular.ttf'
@@ -159,7 +159,7 @@ async def on_mention(note):
         # テキスト合成
         tx = ImageDraw.Draw(img)
 
-        base_x = 960
+        base_x = 890
 
         font_path = FONT_FILE
 
@@ -171,7 +171,7 @@ async def on_mention(note):
             font_path = FONT_FILE_OLD_JAPANESE
 
         # 文章描画
-        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=font_path, size=45, color=(255,255,255,255), split_len=14, auto_expand=True, emojis=reply_note['emojis'])
+        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=font_path, size=45, color=(255,255,255,255), split_len=16, auto_expand=True, emojis=reply_note['emojis'])
 
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
@@ -181,7 +181,7 @@ async def on_mention(note):
         # ID描画
         id = reply_note['user']['username']
         id_y = name_y + tsize_name[1] + 4
-        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=font_path, size=22, color=(180,180,180,255), split_len=35)
+        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=font_path, size=26, color=(180,180,180,255), split_len=32)
 
         # クレジット
         tx.text((980, 694), '<Make it a quote for Fedi> by CyberRex', font=MPLUS_FONT_16, fill=(120,120,120,255))
