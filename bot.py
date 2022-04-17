@@ -48,7 +48,36 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
     draw = ImageDraw.Draw(im)
     fontObj = ImageFont.truetype(font, size=size)
 
-    lines = textwrap.wrap(string, width=split_len)
+    # 改行、句読点(。、.,)で分割した後にさらにワードラップを行う
+    pure_lines = []
+    pos = 0
+    l = ''
+
+    for char in string:
+        if char == '\n':
+            pure_lines.append(l)
+            l = ''
+            pos += 1
+        elif char == '、' or char == ',':
+            pure_lines.append(l + ('、' if char == '、' else ','))
+            l = ''
+            pos += 1
+        elif char == '。' or char == '.':
+            pure_lines.append(l + ('。' if char == '。' else '.'))
+            l = ''
+            pos += 1
+        else:
+            l += char
+            pos += 1
+
+    if l:
+        pure_lines.append(l)
+
+    lines = []
+
+    for line in pure_lines:
+        lines.extend(textwrap.wrap(line, width=split_len))
+    
     dy = 0
 
     draw_lines = []
