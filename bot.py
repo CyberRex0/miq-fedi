@@ -10,6 +10,7 @@ import re
 import math
 import time
 import textwrap
+import requests
 
 try:
     import config_my as config
@@ -21,8 +22,16 @@ from pilmoji import Pilmoji
 from io import BytesIO
 
 WS_URL = f'wss://{config.MISSKEY_INSTANCE}/streaming?i={config.MISSKEY_TOKEN}'
-msk = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN)
-i = msk.i()
+
+_tmp_cli = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN)
+i = _tmp_cli.i()
+
+session = requests.Session()
+session.headers.update({
+    'User-Agent': f'Mozilla/5.0 (Linux; x64; Misskey Bot; {i["id"]}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36'
+})
+
+msk = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN, session=session)
 
 MY_ID = i['id']
 print('Bot user id: ' + MY_ID)
