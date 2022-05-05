@@ -1,5 +1,5 @@
 import logging
-from misskey import Misskey
+from misskey import Misskey, NoteVisibility
 import websockets
 import asyncio, aiohttp
 import json
@@ -245,6 +245,9 @@ async def on_mention(note):
                 return
             if 'RATE_LIMIT_EXCEEDED' in str(e):
                 msk.notes_create('利用殺到による一時的なAPI制限が発生しました。しばらく時間を置いてから再度お試しください。\nA temporary API restriction has occurred due to overwhelming usage. Please wait for a while and try again.', reply_id=note['id'])
+                return
+            if 'YOU_HAVE_BEEN_BLOCKED' in str(e):
+                msk.notes_create(f'@{note["user"]["username"]}@{note["user"]["host"] or config.MISSKEY_INSTANCE}\n引用元のユーザーからブロックされています。')
                 return
             msk.notes_create('画像アップロードに失敗しました\n```plaintext\n' + traceback.format_exc() + '\n```', reply_id=note['id'])
             return
