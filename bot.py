@@ -213,7 +213,7 @@ async def on_mention(note):
 
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
-        name_y = tsize_t[2] + 40
+        name_y = tsize_t[2] + 52
         tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25, emojis=reply_note['user']['emojis'])
         
         # ID描画
