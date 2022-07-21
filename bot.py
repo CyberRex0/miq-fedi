@@ -213,13 +213,13 @@ async def on_mention(note):
 
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
-        name_y = tsize_t[2] + 60
+        name_y = tsize_t[2] + 40
         tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25, emojis=reply_note['user']['emojis'])
         
         # ID描画
         id = reply_note['user']['username']
         id_y = name_y + tsize_name[1] + 4
-        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=font_path, size=26, color=(180,180,180,255), split_len=32)
+        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=font_path, size=18, color=(180,180,180,255), split_len=32)
 
         # クレジット
         tx.text((980, 694), '<Make it a quote for Fedi> by CyberRex', font=MPLUS_FONT_16, fill=(120,120,120,255))
