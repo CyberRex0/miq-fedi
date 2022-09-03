@@ -52,7 +52,7 @@ session = aiohttp.ClientSession()
 
 # logging.basicConfig(level=logging.DEBUG)
 
-def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16, color=(0,0,0,255), split_len=None, padding=4, auto_expand=False, emojis: list = []):
+def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16, color=(0,0,0,255), split_len=None, padding=4, auto_expand=False, emojis: list = [], disable_dot_wrap=False):
     
     draw = ImageDraw.Draw(im)
     fontObj = ImageFont.truetype(font, size=size)
@@ -62,25 +62,28 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
     pos = 0
     l = ''
 
-    for char in string:
-        if char == '\n':
-            pure_lines.append(l)
-            l = ''
-            pos += 1
-        elif char == '、' or char == ',':
-            pure_lines.append(l + ('、' if char == '、' else ','))
-            l = ''
-            pos += 1
-        elif char == '。' or char == '.':
-            pure_lines.append(l + ('。' if char == '。' else '.'))
-            l = ''
-            pos += 1
-        else:
-            l += char
-            pos += 1
+    if not disable_dot_wrap:
+        for char in string:
+            if char == '\n':
+                pure_lines.append(l)
+                l = ''
+                pos += 1
+            elif char == '、' or char == ',':
+                pure_lines.append(l + ('、' if char == '、' else ','))
+                l = ''
+                pos += 1
+            elif char == '。' or char == '.':
+                pure_lines.append(l + ('。' if char == '。' else '.'))
+                l = ''
+                pos += 1
+            else:
+                l += char
+                pos += 1
 
-    if l:
-        pure_lines.append(l)
+        if l:
+            pure_lines.append(l)
+    else:
+        pure_lines = string.split('\n')
 
     lines = []
 
@@ -214,12 +217,12 @@ async def on_mention(note):
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
         name_y = tsize_t[2] + 40
-        tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25, emojis=reply_note['user']['emojis'])
+        tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25, emojis=reply_note['user']['emojis'], disable_dot_wrap=True)
         
         # ID描画
         id = reply_note['user']['username']
         id_y = name_y + tsize_name[1] + 4
-        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=font_path, size=18, color=(180,180,180,255), split_len=45)
+        tsize_id = draw_text(img, (base_x, id_y), f'(@{id}@{reply_note["user"]["host"] or config.MISSKEY_INSTANCE})', font=font_path, size=18, color=(180,180,180,255), split_len=45, disable_dot_wrap=True)
 
         # クレジット
         tx.text((980, 694), '<Make it a quote for Fedi> by CyberRex', font=MPLUS_FONT_16, fill=(120,120,120,255))
