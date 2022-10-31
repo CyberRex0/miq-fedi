@@ -166,14 +166,20 @@ async def on_mention(note):
         if reply_note['cw']:
             reply_note['text'] = reply_note['cw'] + '\n' + reply_note['text']
 
+        username = note["user"]["name"] or note["user"]["username"]
+
         if config.DEBUG:
-            print(f'Quote: {note["user"]["name"] or note["user"]["username"]} からの実行依頼を受信')
+            print(f'Quote: {username} からの実行依頼を受信')
+        
+        if not (reply_note['visibility'] in ['public', 'home']):
+            msk.notes_create(text=f'この投稿はプライベートであるため、処理できません。\nThis post is private and cannot be processed.', reply_id=note['id'])
+            return
 
         # 引用する
         img = BASE_WHITE_IMAGE.copy()
         # アイコン画像ダウンロード
         if not reply_note['user'].get('avatarUrl'):
-            msk.notes_create(text='アイコン画像がないので作れません', reply_id=note['id'])
+            msk.notes_create(text='アイコン画像がないので作れません\nWe can\'t continue because user has no avatar.', reply_id=note['id'])
             return
         
         if config.DEBUG:
@@ -181,7 +187,7 @@ async def on_mention(note):
 
         async with session.get(reply_note['user']['avatarUrl']) as resp:
             if resp.status != 200:
-                msk.notes_create(text='アイコン画像ダウンロードに失敗しました', reply_id=note['id'])
+                msk.notes_create(text='アイコン画像ダウンロードに失敗しました\nFailed to download avatar image.', reply_id=note['id'])
                 return
             avatar = await resp.read()
         
@@ -250,9 +256,9 @@ async def on_mention(note):
                 msk.notes_create('利用殺到による一時的なAPI制限が発生しました。しばらく時間を置いてから再度お試しください。\nA temporary API restriction has occurred due to overwhelming usage. Please wait for a while and try again.', reply_id=note['id'])
                 return
             if 'YOU_HAVE_BEEN_BLOCKED' in str(e):
-                msk.notes_create(f'@{note["user"]["username"]}@{note["user"]["host"] or config.MISSKEY_INSTANCE}\n引用元のユーザーからブロックされています。')
+                msk.notes_create(f'@{note["user"]["username"]}@{note["user"]["host"] or config.MISSKEY_INSTANCE}\n引用元のユーザーからブロックされています。\nI am blocked by the user who posted the original post.', reply_id=note['id'])
                 return
-            msk.notes_create('画像アップロードに失敗しました\n```plaintext\n' + traceback.format_exc() + '\n```', reply_id=note['id'])
+            msk.notes_create('画像アップロードに失敗しました\nFailed to upload image.\n```plaintext\n' + traceback.format_exc() + '\n```', reply_id=note['id'])
             return
         
         if config.DEBUG:
