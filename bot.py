@@ -34,6 +34,7 @@ session.headers.update({
 msk = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN, session=session)
 
 MY_ID = i['id']
+ACCT = f'@{i["username"]}@{config.MISSKEY_INSTANCE}'
 print('Bot user id: ' + MY_ID)
 
 BASE_GRADATION_IMAGE = Image.open('base-gd-5.png')
@@ -137,17 +138,17 @@ async def on_mention(note):
     split_text = note['text'].split(' ')
     new_st = []
 
-    for t in split_text:
-        if t.startswith('@'):
-            if (not t==f'@{i["username"]}') and (not t==f'@{i["username"]}@{config.MISSKEY_INSTANCE}'):
-                pass
-            else:
-                new_st.append(t)
+    mentions = sorted(re.findall(r'(@[a-zA-Z0-9_@\.]+)', note['text']), key=lambda x: len(x), reverse=True)
+
+    for m in mentions:
+        if m == ACCT:
+            continue
         else:
-            new_st.append(t)
-
-    note['text'] = ' '.join(new_st)
-
+            note['text'] = note['text'].replace(m, '')
+    
+    if note['text'].strip() == '':
+        return
+ 
     try:
         content = note['text'].strip().split(' ', 1)[1].strip()
         command = True
@@ -171,8 +172,12 @@ async def on_mention(note):
         if config.DEBUG:
             print(f'Quote: {username} からの実行依頼を受信')
         
+        if '#noquote' in reply_note['user']['description']:
+            msk.notes_create(text='このユーザーは引用を許可していません\nThis user does not allow quoting.', reply_id=note['id'])
+            return
+
         if not (reply_note['visibility'] in ['public', 'home']):
-            msk.notes_create(text=f'この投稿はプライベートであるため、処理できません。\nThis post is private and cannot be processed.', reply_id=note['id'])
+            msk.notes_create(text='この投稿はプライベートであるため、処理できません。\nThis post is private and cannot be processed.', reply_id=note['id'])
             return
 
         # 引用する
@@ -246,8 +251,17 @@ async def on_mention(note):
             data.seek(0)
             if config.DEBUG:
                 print('Quote: アップロード中')
-            f = msk.drive_files_create(file=data, name=f'{datetime.datetime.utcnow().timestamp()}.jpg')
-            msk.drive_files_update(file_id=f['id'], comment=f'"{reply_note["text"]}" —{reply_note["user"]["name"]}')
+            for i in range(5):
+                try:
+                    f = msk.drive_files_create(file=data, name=f'{datetime.datetime.utcnow().timestamp()}.jpg')
+                    msk.drive_files_update(file_id=f['id'], comment=f'"{reply_note["text"][:400]}" —{reply_note["user"]["name"]}')
+                except:
+                    if config.DEBUG:
+                        print(f'Quote: Image upload failed. Retrying... ({i})')
+                    continue
+                break
+            else:
+                raise Exception('Image upload failed.')
         except Exception as e:
             if 'INTERNAL_ERROR' in str(e):
                 msk.notes_create('Internal Error occured in Misskey!', reply_id=note['id'])
