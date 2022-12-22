@@ -53,6 +53,17 @@ session = aiohttp.ClientSession()
 
 # logging.basicConfig(level=logging.DEBUG)
 
+def remove_mentions(text, mymention):
+    mentions = sorted(re.findall(r'(@[a-zA-Z0-9_@\.]+)', text), key=lambda x: len(x), reverse=True)
+
+    for m in mentions:
+        if m == mymention:
+            continue
+        else:
+            text = text.replace(m, '')
+    
+    return text
+
 def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16, color=(0,0,0,255), split_len=None, padding=4, auto_expand=False, emojis: list = [], disable_dot_wrap=False):
     
     draw = ImageDraw.Draw(im)
@@ -138,13 +149,7 @@ async def on_mention(note):
     split_text = note['text'].split(' ')
     new_st = []
 
-    mentions = sorted(re.findall(r'(@[a-zA-Z0-9_@\.]+)', note['text']), key=lambda x: len(x), reverse=True)
-
-    for m in mentions:
-        if m == ACCT:
-            continue
-        else:
-            note['text'] = note['text'].replace(m, '')
+    note['text'] = remove_mentions(note['text'], ACCT)
     
     if note['text'].strip() == '':
         return
@@ -162,6 +167,11 @@ async def on_mention(note):
 
         # ボットの投稿へのメンションの場合は応答しない
         if reply_note['user']['id'] == MY_ID:
+            return
+
+        reply_note['text'] = remove_mentions(reply_note['text'], None)
+
+        if reply_note['text'].strip():
             return
 
         if reply_note['cw']:
