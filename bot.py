@@ -171,7 +171,7 @@ async def on_mention(note):
 
         reply_note['text'] = remove_mentions(reply_note['text'], None)
 
-        if reply_note['text'].strip():
+        if not reply_note['text'].strip():
             return
 
         if reply_note['cw']:
