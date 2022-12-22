@@ -172,7 +172,9 @@ async def on_mention(note):
         if config.DEBUG:
             print(f'Quote: {username} からの実行依頼を受信')
         
-        if '#noquote' in reply_note['user']['description']:
+        target_user = msk.users_show(reply_note['user']['id'])
+
+        if '#noquote' in target_user['description']:
             msk.notes_create(text='このユーザーは引用を許可していません\nThis user does not allow quoting.', reply_id=note['id'])
             return
 
