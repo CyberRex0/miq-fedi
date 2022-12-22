@@ -34,7 +34,7 @@ session.headers.update({
 msk = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN, session=session)
 
 MY_ID = i['id']
-ACCT = f'@{i["username"]}@{config.MISSKEY_INSTANCE}'
+ACCT = f'@{i["username"]}'
 print('Bot user id: ' + MY_ID)
 
 BASE_GRADATION_IMAGE = Image.open('base-gd-5.png')
