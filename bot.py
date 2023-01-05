@@ -21,6 +21,10 @@ from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from pilmoji import Pilmoji
 from io import BytesIO
 
+logging.getLogger("websockets").setLevel(logging.INFO)
+logging.getLogger("PIL.Image").setLevel(logging.ERROR)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
+
 WS_URL = f'wss://{config.MISSKEY_INSTANCE}/streaming?i={config.MISSKEY_TOKEN}'
 
 _tmp_cli = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN)
@@ -51,7 +55,17 @@ MPLUS_FONT_16 = ImageFont.truetype('fonts/MPLUSRounded1c-Regular.ttf', size=16)
 
 session = aiohttp.ClientSession()
 
-# logging.basicConfig(level=logging.DEBUG)
+default_format = '%(asctime)s:%(name)s: %(levelname)s:%(message)s'
+
+logging.basicConfig(level=logging.DEBUG, filename='debug.log', encoding='utf-8', format=default_format)
+# also write log to stdout
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setLevel(logging.DEBUG)
+stdout_handler.setFormatter(logging.Formatter(default_format))
+logging.getLogger().addHandler(stdout_handler)
+
+logger = logging.getLogger('miq-fedi')
+logger.info('Starting')
 
 def remove_mentions(text, mymention):
     mentions = sorted(re.findall(r'(@[a-zA-Z0-9_@\.]+)', text), key=lambda x: len(x), reverse=True)
@@ -145,19 +159,27 @@ async def on_mention(note):
 
     command = False
 
+    childLogger = logger.getChild(note["id"])
+
+    forceRun = '/generate' in note['text']
+    if forceRun:
+        childLogger.info('forceRun enabled')
+
     # 他のメンション取り除く
     split_text = note['text'].split(' ')
     new_st = []
 
     note['text'] = remove_mentions(note['text'], ACCT)
     
-    if note['text'].strip() == '':
+    if (note['text'].strip() == '') and (not forceRun):
+        childLogger.info('text is empty, ignoring')
         return
  
     try:
         content = note['text'].strip().split(' ', 1)[1].strip()
         command = True
     except IndexError:
+        logger.getChild(f'{note["id"]}').info('no command found, ignoring')
         pass
     
     # メンションだけされた？
@@ -165,30 +187,31 @@ async def on_mention(note):
 
         reply_note = note['reply']
 
-        # ボットの投稿へのメンションの場合は応答しない
+        # ボットの投稿への返信の場合は応答しない
         if reply_note['user']['id'] == MY_ID:
+            childLogger.info('this is reply to myself, ignoring')
             return
 
         reply_note['text'] = remove_mentions(reply_note['text'], None)
 
         if not reply_note['text'].strip():
+            childLogger.info('reply text is empty, ignoring')
             return
 
         if reply_note['cw']:
             reply_note['text'] = reply_note['cw'] + '\n' + reply_note['text']
 
         username = note["user"]["name"] or note["user"]["username"]
-
-        if config.DEBUG:
-            print(f'Quote: {username} からの実行依頼を受信')
         
         target_user = msk.users_show(reply_note['user']['id'])
 
         if '#noquote' in target_user['description']:
+            childLogger.info(f'{reply_note["user"]["id"]} does not allow quoting, rejecting')
             msk.notes_create(text='このユーザーは引用を許可していません\nThis user does not allow quoting.', reply_id=note['id'])
             return
 
         if not (reply_note['visibility'] in ['public', 'home']):
+            childLogger.info('visibility is not public, rejecting')
             msk.notes_create(text='この投稿はプライベートであるため、処理できません。\nThis post is private and cannot be processed.', reply_id=note['id'])
             return
 
@@ -196,11 +219,11 @@ async def on_mention(note):
         img = BASE_WHITE_IMAGE.copy()
         # アイコン画像ダウンロード
         if not reply_note['user'].get('avatarUrl'):
+            childLogger.info('user has no avatar, rejecting')
             msk.notes_create(text='アイコン画像がないので作れません\nWe can\'t continue because user has no avatar.', reply_id=note['id'])
             return
         
-        if config.DEBUG:
-            print('Quote: アイコンダウンロード')
+        childLogger.info('downloading avatar image( ' + reply_note['user']['avatarUrl'] + ' )')
 
         async with session.get(reply_note['user']['avatarUrl']) as resp:
             if resp.status != 200:
@@ -208,8 +231,10 @@ async def on_mention(note):
                 return
             avatar = await resp.read()
         
-        if config.DEBUG:
-            print('Quote: 描画中')
+
+        childLogger.info('avatar image downloaded')
+        childLogger.info('generating image')
+
         icon = Image.open(BytesIO(avatar))
         icon = icon.resize((720, 720), Image.ANTIALIAS)
         icon = icon.convert('L') # グレースケール変換
@@ -250,31 +275,29 @@ async def on_mention(note):
         # クレジット
         tx.text((980, 694), '<Make it a quote for Fedi> by CyberRex', font=MPLUS_FONT_16, fill=(120,120,120,255))
 
-        # print(f'{tsize_t=}')
-        # print(f'{tsize_name=}')
+        childLogger.info('image generated')
 
 
         # ドライブにアップロード
-        if config.DEBUG:
-            print('Quote: アップロード準備中')
+        childLogger.info('uploading image')
         try:
             data = BytesIO()
             img.save(data, format='JPEG')
             data.seek(0)
-            if config.DEBUG:
-                print('Quote: アップロード中')
             for i in range(5):
                 try:
                     f = msk.drive_files_create(file=data, name=f'{datetime.datetime.utcnow().timestamp()}.jpg')
                     msk.drive_files_update(file_id=f['id'], comment=f'"{reply_note["text"][:400]}" —{reply_note["user"]["name"]}')
                 except:
-                    if config.DEBUG:
-                        print(f'Quote: Image upload failed. Retrying... ({i})')
+                    childLogger.info('upload failed, retrying (attempt ' + str(i) + ')')
                     continue
                 break
             else:
+                childLogger.error('upload failed')
                 raise Exception('Image upload failed.')
         except Exception as e:
+            childLogger.error('upload failed')
+            childLogger.error(traceback.format_exc())
             if 'INTERNAL_ERROR' in str(e):
                 msk.notes_create('Internal Error occured in Misskey!', reply_id=note['id'])
                 return
@@ -287,13 +310,17 @@ async def on_mention(note):
             msk.notes_create('画像アップロードに失敗しました\nFailed to upload image.\n```plaintext\n' + traceback.format_exc() + '\n```', reply_id=note['id'])
             return
         
-        if config.DEBUG:
-            print('Quote: ノート送信中')
-        
-        msk.notes_create(text='.', file_ids=[f['id']], reply_id=note['id'])
+        childLogger.info('image uploaded')
+        childLogger.info('posting')
 
-        if config.DEBUG:
-            print('Quote: 完了')
+        try:
+            msk.notes_create(text='.', file_ids=[f['id']], reply_id=note['id'])
+        except Exception as e:
+            childLogger.error('post failed')
+            childLogger.error(traceback.format_exc())
+            return
+
+        childLogger.info('Finshed')
 
         return
 
@@ -318,10 +345,11 @@ async def on_followed(user):
 
 async def main():
 
-    print('Connecting to ' + config.MISSKEY_INSTANCE + '...', end='')
+    logger.info(f'Connecting to {config.MISSKEY_INSTANCE}...')
     async with websockets.connect(WS_URL) as ws:
-        print('OK')
-        print('Attemping to watching timeline...', end='')
+        reconnect_counter = 0
+        logger.info(f'Connected to {config.MISSKEY_INSTANCE}')
+        logger.info('Attemping to watching timeline...')
         p = {
             'type': 'connect',
             'body': {
@@ -338,7 +366,6 @@ async def main():
             }
         }
         await ws.send(json.dumps(p))
-        print('OK')
         p = {
             'type': 'connect',
             'body': {
@@ -347,7 +374,7 @@ async def main():
         }
         await ws.send(json.dumps(p))
         
-        print('Listening ws')
+        logger.info('Now watching timeline...')
         while True:
             data = await ws.recv()
             j = json.loads(data)
@@ -361,6 +388,7 @@ async def main():
                         await on_post_note(note)
                     except Exception as e:
                         print(traceback.format_exc())
+                        logger.error(traceback.format_exc())
                         continue
 
                 if j['body']['type'] == 'mention':
@@ -369,6 +397,7 @@ async def main():
                         await on_mention(note)
                     except Exception as e:
                         print(traceback.format_exc())
+                        logger.error(traceback.format_exc())
                         continue
 
                 if j['body']['type'] == 'followed':
@@ -376,6 +405,7 @@ async def main():
                         await on_followed(j['body']['body'])
                     except Exception as e:
                         print(traceback.format_exc())
+                        logger.error(traceback.format_exc())
                         continue
                 
 
@@ -389,8 +419,8 @@ while True:
     except:
         time.sleep(10)
         reconnect_counter += 1
-        print('Reconnecting...', end='')
+        logger.warning('Disconnected from WebSocket. Reconnecting...')
         if reconnect_counter > 10:
-            print('Too many reconnects. Exiting.')
+            logger.critical('Too many reconnects. Exiting.')
             sys.exit(1)
         continue
