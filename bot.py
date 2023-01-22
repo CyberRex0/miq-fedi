@@ -161,7 +161,7 @@ async def on_mention(note):
 
     childLogger = logger.getChild(note["id"])
 
-    forceRun = '/generate' in note['text']
+    forceRun = '/make' in note['text']
     if forceRun:
         childLogger.info('forceRun enabled')
 
