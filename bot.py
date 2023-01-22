@@ -20,6 +20,8 @@ except ImportError:
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from pilmoji import Pilmoji
 from io import BytesIO
+from modules.emojistore import EmojiStore
+import sqlite3
 
 logging.getLogger("websockets").setLevel(logging.INFO)
 logging.getLogger("PIL.Image").setLevel(logging.ERROR)
@@ -27,12 +29,16 @@ logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
 WS_URL = f'wss://{config.MISSKEY_INSTANCE}/streaming?i={config.MISSKEY_TOKEN}'
 
+MISSKEY_EMOJI_REGEX = re.compile(r':([a-zA-Z0-9_]+)(?:@?)(|[a-zA-Z0-9\.-]+):')
+
 _tmp_cli = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN)
 i = _tmp_cli.i()
 
+eStore = EmojiStore(sqlite3.connect('emoji_cache.db'))
+
 session = requests.Session()
 session.headers.update({
-    'User-Agent': f'Mozilla/5.0 (Linux; x64; Misskey Bot; {i["id"]}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36'
+    'User-Agent': f'Mozilla/5.0 (Linux; x64; Misskey Bot; {i["id"]}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
 })
 
 msk = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN, session=session)
@@ -66,6 +72,16 @@ logging.getLogger().addHandler(stdout_handler)
 
 logger = logging.getLogger('miq-fedi')
 logger.info('Starting')
+def parse_misskey_emoji(host, tx):
+    emojis = []
+    for emoji in MISSKEY_EMOJI_REGEX.findall(tx):
+        h = emoji[1] or host
+        if h == '.':
+            h = host
+        e = eStore.get(h, emoji[0])
+        if e:
+            emojis.append(e)
+    return emojis
 
 def remove_mentions(text, mymention):
     mentions = sorted(re.findall(r'(@[a-zA-Z0-9_@\.]+)', text), key=lambda x: len(x), reverse=True)
@@ -260,12 +276,14 @@ async def on_mention(note):
             font_path = FONT_FILE_OLD_JAPANESE
 
         # 文章描画
-        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=font_path, size=45, color=(255,255,255,255), split_len=16, auto_expand=True, emojis=reply_note['emojis'])
+        emojis = parse_misskey_emoji(config.MISSKEY_INSTANCE, reply_note['text'])
+        tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=font_path, size=45, color=(255,255,255,255), split_len=16, auto_expand=True, emojis=emojis)
 
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
         name_y = tsize_t[2] + 40
-        tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25, emojis=reply_note['user']['emojis'], disable_dot_wrap=True)
+        user_emojis = parse_misskey_emoji(config.MISSKEY_INSTANCE, uname)
+        tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25, emojis=user_emojis, disable_dot_wrap=True)
         
         # ID描画
         id = reply_note['user']['username']
