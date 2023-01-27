@@ -221,7 +221,7 @@ async def on_mention(note):
         
         target_user = msk.users_show(reply_note['user']['id'])
 
-        if '#noquote' in target_user['description']:
+        if '#noquote' in target_user.get('description', ''):
             childLogger.info(f'{reply_note["user"]["id"]} does not allow quoting, rejecting')
             msk.notes_create(text='このユーザーは引用を許可していません\nThis user does not allow quoting.', reply_id=note['id'])
             return
