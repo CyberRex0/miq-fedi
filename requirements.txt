@@ -3,3 +3,5 @@ websockets
 aiohttp
 requests
 Pillow
+emoji
+orjson
