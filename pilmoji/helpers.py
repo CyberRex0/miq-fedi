@@ -121,6 +121,9 @@ def to_nodes(text: str, /, emojis: list = []) -> List[List[Node]]:
     """
     return [_parse_line(line, emojis=emojis) for line in text.splitlines()]
 
+def PILF_getsize(font: ImageFont.FreeTypeFont, text):
+    bbox = font.getbbox(text)
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 def getsize(
     text: str,
@@ -159,7 +162,10 @@ def getsize(
             if node.type is not NodeType.text:
                 width = int(emoji_scale_factor * font.size)
             else:
-                width, _ = font.getsize(content)
+                try:
+                    width, _ = font.getsize(content)
+                except:
+                    width, _ = PILF_getsize(font=font, text=content)
 
             this_x += width
 

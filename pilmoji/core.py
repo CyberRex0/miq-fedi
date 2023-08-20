@@ -6,7 +6,7 @@ from optparse import Option
 from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 from typing import Dict, Optional, SupportsInt, TYPE_CHECKING, Tuple, Type, TypeVar, Union
 
-from .helpers import NodeType, getsize, to_nodes
+from .helpers import NodeType, getsize, to_nodes, PILF_getsize
 from .source import BaseSource, HTTPBasedSource, Twemoji, _has_requests
 
 if TYPE_CHECKING:
@@ -304,7 +304,10 @@ class Pilmoji:
 
             for node in line:
                 content = node.content
-                width, height = font.getsize(content)
+                try:
+                    width, height = font.getsize(content)
+                except:
+                    width, height = PILF_getsize(font=font, text=content)
 
                 if node.type is NodeType.text:
                     self.draw.text((x, y), content, *args, **kwargs)

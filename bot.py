@@ -72,6 +72,11 @@ logging.getLogger().addHandler(stdout_handler)
 
 logger = logging.getLogger('miq-fedi')
 logger.info('Starting')
+
+def PILF_getsize(font: ImageFont.FreeTypeFont, text):
+    bbox = font.getbbox(text)
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
 def parse_misskey_emoji(host, tx):
     emojis = []
     for emoji in MISSKEY_EMOJI_REGEX.findall(tx):
@@ -139,7 +144,7 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
 
     # 計算
     for line in lines:
-        tsize = fontObj.getsize(line)
+        tsize = PILF_getsize(font=fontObj, text=line)
 
         ofs_y = ofs[1] + dy
         t_height = tsize[1]
