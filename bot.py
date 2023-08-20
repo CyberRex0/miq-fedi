@@ -257,7 +257,7 @@ async def on_mention(note):
         childLogger.info('generating image')
 
         icon = Image.open(BytesIO(avatar))
-        icon = icon.resize((720, 720), Image.ANTIALIAS)
+        icon = icon.resize((720, 720), Image.LANCZOS)
         icon = icon.convert('L') # グレースケール変換
         icon_filtered = ImageEnhance.Brightness(icon)
 
