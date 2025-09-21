@@ -1,3 +1,5 @@
 __pycache__
+env
 config.py
 debug.log
+emoji_cache.db
