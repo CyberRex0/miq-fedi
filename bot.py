@@ -27,39 +27,47 @@ logging.getLogger("websockets").setLevel(logging.INFO)
 logging.getLogger("PIL.Image").setLevel(logging.ERROR)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
+# ----- Connection Settings -----
 WS_URL = f'wss://{config.MISSKEY_INSTANCE}/streaming?i={config.MISSKEY_TOKEN}'
+HTTP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+# -------------------------------
 
+# ----- Regex -----
 MISSKEY_EMOJI_REGEX = re.compile(r':([a-zA-Z0-9_]+)(?:@?)(|[a-zA-Z0-9\.-]+):')
+# -----------------
 
-_tmp_cli = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN)
-i = _tmp_cli.i()
-
-eStore = EmojiStore(sqlite3.connect('emoji_cache.db'))
-
-session = requests.Session()
-session.headers.update({
-    'User-Agent': f'Mozilla/5.0 (Linux; x64; Misskey Bot; {i["id"]}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
-})
-
-msk = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN, session=session)
-
-MY_ID = i['id']
-ACCT = f'@{i["username"]}'
-print('Bot user id: ' + MY_ID)
-
+# ----- Image resources -----
 BASE_GRADATION_IMAGE = Image.open('base-gd-5.png')
 BASE_WHITE_IMAGE = Image.open('base-w.png')
+eStore = EmojiStore(sqlite3.connect('emoji_cache.db'))
+# ---------------------------
 
+# ----- Font resources -----
 FONT_FILE = 'fonts/MPLUSRounded1c-Regular.ttf'
 FONT_FILE_SERIF = 'fonts/NotoSerifJP-Regular.otf'
 FONT_FILE_OLD_JAPANESE = 'fonts/YujiSyuku-Regular.ttf'
 FONT_FILE_POP = 'fonts/MochiyPopPOne-Regular.ttf'
-
 #MPLUS_FONT_TEXT = ImageFont.truetype(FONT_FILE, size=45)
 #MPLUS_FONT_NAME = ImageFont.truetype(FONT_FILE, size=30)
 MPLUS_FONT_16 = ImageFont.truetype('fonts/MPLUSRounded1c-Regular.ttf', size=16)
+# ---------------------------
 
-session = aiohttp.ClientSession()
+# ----- Global variables -----
+receivedNotes = set()
+session = None
+# ----------------------------
+
+mi_api_session = requests.Session()
+mi_api_session.headers.update({
+    'User-Agent': HTTP_UA
+})
+
+msk = Misskey(config.MISSKEY_INSTANCE, i=config.MISSKEY_TOKEN, session=mi_api_session)
+i = msk.i()
+
+MY_ID = i['id']
+ACCT = f'@{i["username"]}'
+print('Bot user id: ' + MY_ID)
 
 default_format = '%(asctime)s:%(name)s: %(levelname)s:%(message)s'
 
@@ -81,7 +89,7 @@ def parse_misskey_emoji(host, tx):
     emojis = []
     for emoji in MISSKEY_EMOJI_REGEX.findall(tx):
         h = emoji[1] or host
-        if h == '.':
+        if h == '.' or h == '':
             h = host
         e = eStore.get(h, emoji[0])
         if e:
@@ -164,9 +172,6 @@ def draw_text(im, ofs, string, font='fonts/MPLUSRounded1c-Regular.ttf', size=16,
     real_y = ofs[1] + adj_y + dy
 
     return (0, dy, real_y)
-    
-
-receivedNotes = set()
 
 async def on_post_note(note):
     pass
@@ -226,14 +231,19 @@ async def on_mention(note):
         
         target_user = msk.users_show(reply_note['user']['id'])
 
+        if note['visibility'] == 'specified':
+            childLogger.info('visibility is specified, rejecting')
+            msk.notes_create(text='DMからは操作できません\nCannot issue command from direct message.', reply_id=note['id'], visibility=NoteVisibility.SPECIFIED, visible_user_ids=note['visibleUserIds'])
+            return
+
         if '#noquote' in target_user.get('description', ''):
             childLogger.info(f'{reply_note["user"]["id"]} does not allow quoting, rejecting')
-            msk.notes_create(text='このユーザーは引用を許可していません\nThis user does not allow quoting.', reply_id=note['id'])
+            msk.notes_create(text='このユーザーは引用を許可していません\nThis user does not allow quoting.', reply_id=note['id'], visibility=note['visibility'])
             return
 
         if not (reply_note['visibility'] in ['public', 'home']):
             childLogger.info('visibility is not public, rejecting')
-            msk.notes_create(text='この投稿はプライベートであるため、処理できません。\nThis post is private and cannot be processed.', reply_id=note['id'])
+            msk.notes_create(text='この投稿はプライベートであるため、処理できません。\nThis post is private and cannot be processed.', reply_id=note['id'], visibility=note['visibility'])
             return
 
         # 引用する
@@ -241,14 +251,14 @@ async def on_mention(note):
         # アイコン画像ダウンロード
         if not reply_note['user'].get('avatarUrl'):
             childLogger.info('user has no avatar, rejecting')
-            msk.notes_create(text='アイコン画像がないので作れません\nWe can\'t continue because user has no avatar.', reply_id=note['id'])
+            msk.notes_create(text='アイコン画像がないので作れません\nWe can\'t continue because user has no avatar.', reply_id=note['id'], visibility=note['visibility'])
             return
         
         childLogger.info('downloading avatar image( ' + reply_note['user']['avatarUrl'] + ' )')
 
         async with session.get(reply_note['user']['avatarUrl']) as resp:
             if resp.status != 200:
-                msk.notes_create(text='アイコン画像ダウンロードに失敗しました\nFailed to download avatar image.', reply_id=note['id'])
+                msk.notes_create(text='アイコン画像ダウンロードに失敗しました\nFailed to download avatar image.', reply_id=note['id'], visibility=note['visibility'])
                 return
             avatar = await resp.read()
         
@@ -282,12 +292,14 @@ async def on_mention(note):
 
         # 文章描画
         emojis = parse_misskey_emoji(config.MISSKEY_INSTANCE, reply_note['text'])
+        #emojis = note['reply'].get('emojis', [])
         tsize_t = draw_text(img, (base_x, 270), note['reply']['text'], font=font_path, size=45, color=(255,255,255,255), split_len=16, auto_expand=True, emojis=emojis)
 
         # 名前描画
         uname = reply_note['user']['name'] or reply_note['user']['username']
         name_y = tsize_t[2] + 40
-        user_emojis = parse_misskey_emoji(config.MISSKEY_INSTANCE, uname)
+        #user_emojis = parse_misskey_emoji(config.MISSKEY_INSTANCE, uname)
+        user_emojis = note['reply']['user'].get('emojis', [])
         tsize_name = draw_text(img, (base_x, name_y), uname, font=font_path, size=25, color=(255,255,255,255), split_len=25, emojis=user_emojis, disable_dot_wrap=True)
         
         # ID描画
@@ -322,15 +334,15 @@ async def on_mention(note):
             childLogger.error('upload failed')
             childLogger.error(traceback.format_exc())
             if 'INTERNAL_ERROR' in str(e):
-                msk.notes_create('Internal Error occured in Misskey!', reply_id=note['id'])
+                msk.notes_create('Internal Error occured in Misskey!', reply_id=note['id'], visibility=note['visibility'])
                 return
             if 'RATE_LIMIT_EXCEEDED' in str(e):
-                msk.notes_create('利用殺到による一時的なAPI制限が発生しました。しばらく時間を置いてから再度お試しください。\nA temporary API restriction has occurred due to overwhelming usage. Please wait for a while and try again.', reply_id=note['id'])
+                msk.notes_create('利用殺到による一時的なAPI制限が発生しました。しばらく時間を置いてから再度お試しください。\nA temporary API restriction has occurred due to overwhelming usage. Please wait for a while and try again.', reply_id=note['id'], visibility=note['visibility'])
                 return
             if 'YOU_HAVE_BEEN_BLOCKED' in str(e):
-                msk.notes_create(f'@{note["user"]["username"]}@{note["user"]["host"] or config.MISSKEY_INSTANCE}\n引用元のユーザーからブロックされています。\nI am blocked by the user who posted the original post.', reply_id=note['id'])
+                msk.notes_create(f'@{note["user"]["username"]}@{note["user"]["host"] or config.MISSKEY_INSTANCE}\n引用元のユーザーからブロックされています。\nI am blocked by the user who posted the original post.', reply_id=note['id'], visibility=note['visibility'])
                 return
-            msk.notes_create('画像アップロードに失敗しました\nFailed to upload image.\n```plaintext\n' + traceback.format_exc() + '\n```', reply_id=note['id'])
+            msk.notes_create('画像アップロードに失敗しました\nFailed to upload image.\n```plaintext\n' + traceback.format_exc() + '\n```', reply_id=note['id'], visibility=note['visibility'])
             return
         
         childLogger.info('image uploaded')
@@ -368,6 +380,13 @@ async def on_followed(user):
 
 async def main():
 
+    global session
+
+    session = aiohttp.ClientSession()
+    session.headers.update({
+        'User-Agent': HTTP_UA
+    })
+
     logger.info(f'Connecting to {config.MISSKEY_INSTANCE}...')
     async with websockets.connect(WS_URL) as ws:
         reconnect_counter = 0
@@ -392,7 +411,8 @@ async def main():
         p = {
             'type': 'connect',
             'body': {
-                'channel': 'main'
+                'channel': 'main',
+                'id': 'MAIN1'
             }
         }
         await ws.send(json.dumps(p))
@@ -401,7 +421,7 @@ async def main():
         while True:
             data = await ws.recv()
             j = json.loads(data)
-            # print(j)
+            #print(j)
 
             if j['type'] == 'channel':
 
@@ -436,7 +456,7 @@ reconnect_counter = 0
 
 while True:
     try:
-        asyncio.get_event_loop().run_until_complete(main())
+        asyncio.run(main())
     except KeyboardInterrupt:
         break
     except:

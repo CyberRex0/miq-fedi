@@ -84,7 +84,8 @@ class EmojiStore:
     def _download(self, host):
         emoji_data = self._fetch_emoji_data(host)
         cur = self.db.cursor()
-        cur.execute('REPLACE INTO emoji_cache(host, data, last_updated) VALUES (?, ?, ?)', (host, orjson.dumps(emoji_data), math.floor(time.time())))
+        cur.execute('DELETE FROM emoji_cache WHERE host = ?', (host,))
+        cur.execute('INSERT INTO emoji_cache(host, data, last_updated) VALUES (?, ?, ?)', (host, orjson.dumps(emoji_data), math.floor(time.time())))
         self.db.commit()
         self.emoji_cache[host] = emoji_data
 
