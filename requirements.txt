@@ -5,3 +5,4 @@ requests
 Pillow
 emoji
 orjson
+git+https://github.com/CyberRex0/pilmoji.git
